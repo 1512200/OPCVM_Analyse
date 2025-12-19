@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import plotly.express as px
+from pathlib import Path
 
 # ================================
 # PAGE CONFIG (TOUJOURS EN PREMIER)
@@ -10,7 +11,62 @@ st.set_page_config(
     page_title="OPCVM Intelligence Platform",
     layout="wide"
 )
+SCORES_DIR = "scoring_par_categorie"
+def fmt_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy with rounded score columns for nicer display."""
+    df2 = df.copy()
+    for c in ["score_performance", "score_risque", "score_raroc", "score_global", "profil_score"]:
+        if c in df2.columns:
+            df2[c] = df2[c].round(3)
+    for c in ["perf_mean", "risk_raw", "raroc_raw"]:
+        if c in df2.columns:
+            df2[c] = df2[c].round(4)
+    return df2
+@st.cache_data(show_spinner=False)
+def load_scored_data(scores_dir: str) -> pd.DataFrame:
+    """Load all scored funds. Expected: 1 row per fund with score columns."""
+    scores_path = Path(scores_dir)
+    if not scores_path.exists():
+        return pd.DataFrame()
 
+    # Prefer a global file if available
+    global_path = scores_path / "opcvm_scored_all.csv"
+    if global_path.exists():
+        df = pd.read_csv(global_path)
+    else:
+        files = sorted([p for p in scores_path.glob("scored_*.csv") if p.is_file()])
+        if not files:
+            return pd.DataFrame()
+        df = pd.concat([pd.read_csv(p) for p in files], ignore_index=True)
+
+    # Ensure expected columns exist
+    if "Catégorie" not in df.columns and "Categorie" in df.columns:
+        df = df.rename(columns={"Categorie": "Catégorie"})
+
+    # Numeric columns (convert safely)
+    numeric_cols = [
+        "score_performance",
+        "score_risque",
+        "score_raroc",
+        "score_global",
+        "perf_mean",
+        "risk_raw",
+        "raroc_raw",
+    ]
+    for c in numeric_cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # Basic cleanup
+    if "fond" in df.columns:
+        df["fond"] = df["fond"].astype(str).str.strip()
+    if "Catégorie" in df.columns:
+        df["Catégorie"] = df["Catégorie"].astype(str).str.strip()
+
+    return df
+
+
+df_all = load_scored_data(SCORES_DIR)
 # ================================
 # STYLE (CENTRAGE TITRE & TEXTE)
 # ================================
@@ -110,7 +166,7 @@ elif page == " Tableau des Fonds":
     st.title(" Tableau des Fonds OPCVM (Scores par catégorie)")
     
 
-    SCORES_DIR = "scoring_par_categorie"
+    
 
     # ---------
     # Charger tous les fichiers scored_*.csv
