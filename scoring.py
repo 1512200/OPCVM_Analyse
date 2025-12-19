@@ -156,7 +156,7 @@ def main():
     all_df.to_csv(os.path.join(OUTPUT_DIR, "opcvm_scored_all.csv"),
                   index=False, encoding="utf-8-sig")
 
-    print(f"\n✅ Terminé. Résultats dans: {OUTPUT_DIR}/")
+    print(f"\n Terminé. Résultats dans: {OUTPUT_DIR}/")
     print(" - opcvm_scored_all.csv")
     print(" - scored_<categorie>.csv (un par catégorie)")
 
